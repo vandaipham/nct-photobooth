@@ -183,7 +183,7 @@ export default function App() {
         img.onload = () => {
           const canvas = document.createElement('canvas');
           // Scale it down: Max width or height of 1200px
-          const maxDim = 2000;
+          const maxDim = 1200;
           let scale = 1;
           if (img.width > maxDim || img.height > maxDim) {
             scale = Math.min(maxDim / img.width, maxDim / img.height);
