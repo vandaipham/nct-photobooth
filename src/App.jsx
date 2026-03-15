@@ -1,23 +1,24 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { Camera, RefreshCcw, Download, CheckCircle, Loader2, AlertCircle, User, Phone } from 'lucide-react';
+import { Camera, RefreshCcw, Send, CheckCircle, Loader2, AlertCircle, User, Phone, Mail } from 'lucide-react';
 
 export default function App() {
-  const [step, setStep] = useState('welcome'); // 'welcome', 'camera', 'processing', 'result'
+  const [step, setStep] = useState('welcome');
   const [photos, setPhotos] = useState([]);
   const [finalImage, setFinalImage] = useState(null);
   const [toastMessage, setToastMessage] = useState(null);
   const [cameraError, setCameraError] = useState(null);
+  const [isSending, setIsSending] = useState(false);
   
-  // Camera selection state
   const [devices, setDevices] = useState([]);
   const [selectedDeviceId, setSelectedDeviceId] = useState('');
+  
   const [userName, setUserName] = useState('');
   const [phoneNumber, setPhoneNumber] = useState('');
+  const [emailAddress, setEmailAddress] = useState('');
 
   const videoRef = useRef(null);
   const streamRef = useRef(null);
 
-  // Clean up camera stream
   const stopCamera = useCallback(() => {
     if (streamRef.current) {
       streamRef.current.getTracks().forEach(track => track.stop());
@@ -25,35 +26,25 @@ export default function App() {
     }
   }, []);
 
-  // Initialize camera when entering 'camera' step or changing camera device
   useEffect(() => {
     if (step === 'camera') {
       const initCamera = async () => {
         try {
-          // Configure constraints based on whether a specific camera was selected
-          // Increased to 1080p for a higher quality capture
           const videoConstraints = { width: { ideal: 1920 }, height: { ideal: 1080 } };
           if (selectedDeviceId) {
             videoConstraints.deviceId = { exact: selectedDeviceId };
           } else {
-            videoConstraints.facingMode = "user"; // Default to front-facing/primary
+            videoConstraints.facingMode = "user";
           }
 
-          const stream = await navigator.mediaDevices.getUserMedia({ 
-            video: videoConstraints 
-          });
-          
+          const stream = await navigator.mediaDevices.getUserMedia({ video: videoConstraints });
           streamRef.current = stream;
-          if (videoRef.current) {
-            videoRef.current.srcObject = stream;
-          }
+          if (videoRef.current) videoRef.current.srcObject = stream;
           setCameraError(null);
 
-          // Once permission is granted and stream is active, fetch all available camera devices
           const allDevices = await navigator.mediaDevices.enumerateDevices();
           const videoInputDevices = allDevices.filter(device => device.kind === 'videoinput');
           setDevices(videoInputDevices);
-
         } catch (err) {
           console.error("Error accessing camera:", err);
           setCameraError("Unable to access the camera. Please ensure you have granted permission.");
@@ -63,11 +54,9 @@ export default function App() {
     } else {
       stopCamera();
     }
-
     return () => stopCamera();
-  }, [step, selectedDeviceId, stopCamera]); // Added selectedDeviceId to dependency array
+  }, [step, selectedDeviceId, stopCamera]);
 
-  // Process photos when 4 are taken
   useEffect(() => {
     if (photos.length === 4 && step === 'camera') {
       setStep('processing');
@@ -82,19 +71,16 @@ export default function App() {
 
   const takePhoto = () => {
     if (!videoRef.current) return;
-    
     const video = videoRef.current;
     const canvas = document.createElement('canvas');
     canvas.width = video.videoWidth;
     canvas.height = video.videoHeight;
     const ctx = canvas.getContext('2d');
     
-    // Flip horizontally for a mirror effect
     ctx.translate(canvas.width, 0);
     ctx.scale(-1, 1);
     ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
     
-    // High quality for saving locally
     const dataUrl = canvas.toDataURL('image/jpeg', 0.95);
     setPhotos(prev => [...prev, dataUrl]);
   };
@@ -120,7 +106,6 @@ export default function App() {
       const canvas = document.createElement('canvas');
       const ctx = canvas.getContext('2d');
       
-      // Keep full resolution for downloading
       canvas.width = frameImg.width;
       canvas.height = frameImg.height;
 
@@ -168,8 +153,8 @@ export default function App() {
 
       ctx.drawImage(frameCanvas, 0, 0);
 
-      // High quality export
-      setFinalImage(canvas.toDataURL('image/jpeg', 0.95));
+      // Keep this at extremely high quality for local device saving
+      setFinalImage(canvas.toDataURL('image/jpeg', 0.95)); 
       setStep('result');
 
     } catch (err) {
@@ -180,35 +165,82 @@ export default function App() {
     }
   };
 
-  const handleDownload = () => {
+  const handleSendEmail = async () => {
     if (!finalImage) return;
     
-    if (!userName.trim() || !phoneNumber.trim()) {
-      showToast("Please enter your name and phone number to save.");
+    if (!userName.trim() || !phoneNumber.trim() || !emailAddress.trim()) {
+      showToast("Please fill in all fields to send the email.");
       return;
     }
 
-    // Sanitize the name and phone number to remove any weird characters for the filename
-    const safeName = userName.trim().replace(/[^a-z0-9]/gi, '_');
-    const safePhone = phoneNumber.trim().replace(/[^a-z0-9]/gi, '_');
-    
-    // Create a temporary link element to trigger the download
-    const link = document.createElement('a');
-    link.href = finalImage;
-    link.download = `Metropolia_${safeName}_${safePhone}.jpg`;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    
-    showToast("Photo saved successfully!");
+    setIsSending(true);
+
+    try {
+      // Create a compressed version strictly for the email attachment 
+      // This prevents hitting Gmail's 25MB attachment limit.
+      const emailPhotoData = await new Promise((resolve) => {
+        const img = new Image();
+        img.onload = () => {
+          const canvas = document.createElement('canvas');
+          // Scale it down: Max width or height of 1200px
+          const maxDim = 2000;
+          let scale = 1;
+          if (img.width > maxDim || img.height > maxDim) {
+            scale = Math.min(maxDim / img.width, maxDim / img.height);
+          }
+          canvas.width = img.width * scale;
+          canvas.height = img.height * scale;
+          const ctx = canvas.getContext('2d');
+          ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+          
+          // Export at 80% quality for the email payload
+          resolve(canvas.toDataURL('image/jpeg', 0.8));
+        };
+        img.src = finalImage;
+      });
+
+      const response = await fetch('/api/send-email', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: userName,
+          phone: phoneNumber,
+          email: emailAddress,
+          photo: finalImage // Send the raw image to the server
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to send email on server');
+      }
+      
+      showToast("Photo sent to email successfully!");
+      
+      // Still download the full, uncompressed version to the local device
+      const safeName = userName.trim().replace(/[^a-z0-9]/gi, '_');
+      const safePhone = phoneNumber.trim().replace(/[^a-z0-9]/gi, '_');
+      const link = document.createElement('a');
+      link.href = finalImage;
+      link.download = `Metropolia_${safeName}_${safePhone}.jpg`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+
+    } catch (error) {
+      console.error(error);
+      showToast("Failed to send email. Check connection.");
+    } finally {
+      setIsSending(false);
+    }
   };
 
   const resetBooth = () => {
     setPhotos([]);
     setFinalImage(null);
-    setSelectedDeviceId(''); // Reset camera selection
+    setSelectedDeviceId('');
     setUserName('');
     setPhoneNumber('');
+    setEmailAddress('');
     setStep('welcome');
   };
 
@@ -219,11 +251,10 @@ export default function App() {
     >
       <div className="absolute inset-0 bg-black/40 backdrop-blur-sm"></div>
 
-      {/* Widened container to max-w-xl for a bigger preview size */}
       <div className="relative z-10 w-full max-w-xl bg-white/95 backdrop-blur-md shadow-2xl rounded-3xl overflow-hidden border border-white/20">
         
         <div className="bg-[#f25c27] p-6 text-center text-white">
-          <h1 className="text-3xl font-extrabold tracking-tight">Metropolia Vietnam</h1>
+          <h1 className="text-3xl font-extrabold tracking-tight">Metropolia</h1>
           <p className="text-orange-100 text-sm font-medium mt-1 uppercase tracking-wider">Photo Booth</p>
         </div>
 
@@ -255,7 +286,6 @@ export default function App() {
                 </div>
               </div>
 
-              {/* CAMERA SELECTION DROPDOWN */}
               {devices.length > 1 && !cameraError && (
                 <div className="w-full px-1">
                   <select
@@ -332,7 +362,7 @@ export default function App() {
               </div>
 
               <div className="w-full bg-gray-50 p-4 rounded-xl border border-gray-100 mb-6 shadow-sm">
-                <h3 className="text-sm font-bold text-gray-700 mb-3 uppercase tracking-wider text-left">Save Your Photo</h3>
+                <h3 className="text-sm font-bold text-gray-700 mb-3 uppercase tracking-wider text-left">Get Your Photos</h3>
                 <div className="space-y-3 mb-4">
                   <div className="relative">
                     <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
@@ -358,14 +388,27 @@ export default function App() {
                       className="block w-full pl-10 pr-3 py-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-[#f25c27] focus:border-transparent outline-none transition-all"
                     />
                   </div>
+                  <div className="relative">
+                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                      <Mail className="h-5 w-5 text-gray-400" />
+                    </div>
+                    <input
+                      type="email"
+                      value={emailAddress}
+                      onChange={(e) => setEmailAddress(e.target.value)}
+                      placeholder="Email Address"
+                      className="block w-full pl-10 pr-3 py-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-[#f25c27] focus:border-transparent outline-none transition-all"
+                    />
+                  </div>
                 </div>
 
                 <button
-                  onClick={handleDownload}
-                  className="w-full py-4 bg-[#f25c27] hover:bg-[#d94a1a] text-white rounded-xl font-bold text-lg shadow-lg shadow-orange-500/30 transition-all transform hover:-translate-y-1 active:translate-y-0 flex items-center justify-center"
+                  onClick={handleSendEmail}
+                  disabled={isSending}
+                  className="w-full py-4 bg-[#f25c27] hover:bg-[#d94a1a] text-white rounded-xl font-bold text-lg shadow-lg shadow-orange-500/30 transition-all transform hover:-translate-y-1 active:translate-y-0 flex items-center justify-center disabled:opacity-70 disabled:hover:translate-y-0"
                 >
-                  <Download className="w-6 h-6 mr-2" />
-                  Save Photo to Device
+                  {isSending ? <Loader2 className="w-6 h-6 mr-2 animate-spin" /> : <Send className="w-6 h-6 mr-2" />}
+                  {isSending ? "Sending Email..." : "Send to Email & Save"}
                 </button>
               </div>
 

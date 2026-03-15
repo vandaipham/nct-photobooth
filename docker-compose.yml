@@ -12,7 +12,12 @@ services:
     
     # Maps port 8080 on your laptop to port 80 (Nginx) inside the container
     ports:
-      - "8080:80"
-      
+      - "8080:8080"
+    
+    environment:
+      - PORT=8080
+      - GMAIL_USER=daipham93@gmail.com
+      - GMAIL_APP_PASSWORD=nueyxmrrqrmqzcit
+
     # Ensures the app automatically restarts if it crashes or if your laptop restarts
     restart: unless-stopped

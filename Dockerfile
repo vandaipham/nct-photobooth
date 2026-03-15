@@ -1,34 +1,21 @@
-# ==========================================
-# Stage 1: Build the React application
-# ==========================================
-FROM node:20-alpine AS build
+FROM node:20-alpine
 
-# Set the working directory inside the container
 WORKDIR /app
 
-# Copy package.json and package-lock.json first to leverage Docker cache
+# Copy package files
 COPY package*.json ./
 
-# Install project dependencies
+# Install ALL dependencies (including express and nodemailer)
 RUN npm install
 
-# Copy the rest of the application source code
-# (This includes your public folder with the images and the src folder)
+# Copy all files
 COPY . .
 
-# Build the Vite application for production
+# Build the React frontend into the /dist folder
 RUN npm run build
 
-# ==========================================
-# Stage 2: Serve the application using Nginx
-# ==========================================
-FROM nginx:alpine
+# Expose port 8080
+EXPOSE 8080
 
-# Copy the built static files from the 'build' stage into Nginx's serving directory
-COPY --from=build /app/dist /usr/share/nginx/html
-
-# Expose port 80 to the outside world
-EXPOSE 80
-
-# Start the Nginx server
-CMD ["nginx", "-g", "daemon off;"]
+# Run the Node.js backend server
+CMD ["node", "server.js"]
