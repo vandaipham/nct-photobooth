@@ -194,7 +194,7 @@ export default function App() {
           ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
           
           // Export at 80% quality for the email payload
-          resolve(canvas.toDataURL('image/jpeg', 0.8));
+          resolve(canvas.toDataURL('image/jpeg', 0.95));
         };
         img.src = finalImage;
       });
