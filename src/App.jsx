@@ -89,7 +89,7 @@ export default function App() {
     try {
       const frameImg = new Image();
       frameImg.crossOrigin = "anonymous";
-      frameImg.src = 'Frame_metro.png';
+      frameImg.src = 'NCT-frame-chup-hinh.png';
       await new Promise((resolve, reject) => {
         frameImg.onload = resolve;
         frameImg.onerror = () => reject(new Error("Failed to load frame image"));
@@ -256,14 +256,14 @@ export default function App() {
   return (
     <div 
       className="min-h-screen bg-cover bg-center bg-no-repeat flex items-center justify-center p-4 relative font-sans"
-      style={{ backgroundImage: `url('image_ddad45.jpg')` }}
+      style={{ backgroundImage: `url('NCT-background.jpg')` }}
     >
       <div className="absolute inset-0 bg-black/40 backdrop-blur-sm"></div>
 
       <div className="relative z-10 w-full max-w-xl bg-white/95 backdrop-blur-md shadow-2xl rounded-3xl overflow-hidden border border-white/20">
         
         <div className="bg-[#f25c27] p-6 text-center text-white">
-          <h1 className="text-3xl font-extrabold tracking-tight">Metropolia</h1>
+          <h1 className="text-3xl font-extrabold tracking-tight">Photo Booth</h1>
           <p className="text-orange-100 text-sm font-medium mt-1 uppercase tracking-wider">Photo Booth</p>
         </div>
 
@@ -274,7 +274,7 @@ export default function App() {
                 <Camera className="w-12 h-12 text-[#f25c27]" />
               </div>
               <h2 className="text-2xl font-bold text-gray-800">Ready for your close-up?</h2>
-              <p className="text-gray-600">Take 4 fun photos and get a personalized Metropolia souvenir frame.</p>
+              <p className="text-gray-600">Take 4 fun photos and get a personalized souvenir frame.</p>
               <button 
                 onClick={() => setStep('camera')}
                 className="w-full py-4 bg-[#f25c27] hover:bg-[#d94a1a] text-white rounded-xl font-bold text-lg shadow-lg shadow-orange-500/30 transition-all transform hover:-translate-y-1 active:translate-y-0"
